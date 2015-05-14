@@ -14,7 +14,7 @@ type Todo struct {
 	IsCompleted bool
 }
 
-func (t Todo) GetId() string {
+func (t Todo) ModelId() string {
 	return strconv.Itoa(t.Id)
 }
 
