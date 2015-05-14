@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	"github.com/albrow/qunit"
-	"github.com/go-humble/humble/rest"
+	"github.com/go-humble/rest"
+	"github.com/rusco/qunit"
 	"reflect"
 	"strconv"
 )
