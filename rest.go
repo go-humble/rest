@@ -25,9 +25,9 @@ import (
 // Because of the way reflection is used to encode the data, a Model must have an
 // underlying type of either a struct or a pointer to a struct.
 type Model interface {
-	// GetId returns a unique identifier for the model. It is used for determining
+	// ModelId returns a unique identifier for the model. It is used for determining
 	// which URL to send a request to.
-	GetId() string
+	ModelId() string
 	// RootURL returns the url for the REST resource corresponding to this model.
 	// Typically it should look something like "http://examle.com/todos". Note that
 	// the trailing slash should not be included.
@@ -51,7 +51,7 @@ func Create(model Model) error {
 }
 
 // Read sends an http request to read (or fetch) the model with the given id
-// from the server. It sends a GET request to model.RootURL() + "/" + model.GetId().
+// from the server. It sends a GET request to model.RootURL() + "/" + model.ModelId().
 // Read expects a JSON response containing the data for the requested model if the
 // request was successful, in which case it will mutate model by setting the fields
 // to the values in the JSON response. Since model may be mutated, it should be
@@ -84,7 +84,7 @@ func ReadAll(models interface{}) error {
 // in which case it will mutate model by setting the fields to the values in the JSON
 // response. Since model may be mutated, it should be a pointer.
 func Update(model Model) error {
-	fullURL := model.RootURL() + "/" + model.GetId()
+	fullURL := model.RootURL() + "/" + model.ModelId()
 	encodedModelData, err := encodeModelFields(model)
 	if err != nil {
 		return err
@@ -93,10 +93,10 @@ func Update(model Model) error {
 }
 
 // Delete sends an http request to delete the given model. It sends a DELETE request
-// to model.RootURL() + "/" + model.GetId(). DELETE expects an empty JSON response
+// to model.RootURL() + "/" + model.ModelId(). DELETE expects an empty JSON response
 // if the request was successful, and it will not mutate model.
 func Delete(model Model) error {
-	fullURL := model.RootURL() + "/" + model.GetId()
+	fullURL := model.RootURL() + "/" + model.ModelId()
 	req, err := http.NewRequest("DELETE", fullURL, nil)
 	if err != nil {
 		return fmt.Errorf("Something went wrong building DELETE request to %s: %s", fullURL, err.Error())
