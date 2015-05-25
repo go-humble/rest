@@ -248,7 +248,7 @@ func urlEncodeFields(model Model) (string, error) {
 		fieldValue := modelVal.FieldByName(field.Name)
 		encodedField, err := urlEncodeField(field, fieldValue)
 		if err != nil {
-			if _, ok := err.(nilFieldError); ok {
+			if err == nilFieldError {
 				// If there was a nil field, continue without adding the field
 				// to the encoded data.
 				continue
@@ -261,11 +261,7 @@ func urlEncodeFields(model Model) (string, error) {
 	return strings.Join(encodedFields, "&"), nil
 }
 
-type nilFieldError struct{}
-
-func (nilFieldError) Error() string {
-	return "field was nil"
-}
+var nilFieldError = errors.New("field was nil")
 
 // urlEncodeField converts a field with the given value to a string. It returns an error
 // if field has a type which is unsupported. It returns a special error (nilFieldError)
@@ -275,7 +271,7 @@ func urlEncodeField(field reflect.StructField, value reflect.Value) (string, err
 	for value.Kind() == reflect.Ptr {
 		if value.IsNil() {
 			// Skip nil fields
-			return "", nilFieldError{}
+			return "", nilFieldError
 		}
 		value = value.Elem()
 	}
