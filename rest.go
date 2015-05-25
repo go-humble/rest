@@ -19,6 +19,25 @@ import (
 	"strings"
 )
 
+type ContentType string
+
+const (
+	ContentJSON       ContentType = "application/json"
+	ContentURLEncoded ContentType = "application/x-www-form-urlencoded"
+)
+
+// contentType determines which Content-Type header and body encoding to
+// use and can be set with the SetContentType function.
+var contentType = ContentURLEncoded
+
+// SetContentType can be set to globally effect the Content-Type header and body
+// encoding used by the rest package when sending requests. By default the value
+// is ContentURLEncoded, which is "application/x-www-form-urlencoded". To send
+// requests encoded as JSON, you can set this to ContentJSON.
+func SetContentType(c ContentType) {
+	contentType = c
+}
+
 // Model must be satisfied by all models. Satisfying this interface allows you to
 // use the helper methods which send http requests to a REST API. They are used
 // for e.g., creating a new model or getting an existing model from the server.
@@ -43,7 +62,7 @@ type Model interface {
 // it should be a poitner.
 func Create(model Model) error {
 	fullURL := model.RootURL()
-	encodedModelData, err := encodeModelFields(model)
+	encodedModelData, err := encodeFields(model)
 	if err != nil {
 		return err
 	}
@@ -85,7 +104,7 @@ func ReadAll(models interface{}) error {
 // response. Since model may be mutated, it should be a pointer.
 func Update(model Model) error {
 	fullURL := model.RootURL() + "/" + model.ModelId()
-	encodedModelData, err := encodeModelFields(model)
+	encodedModelData, err := encodeFields(model)
 	if err != nil {
 		return err
 	}
@@ -169,7 +188,7 @@ func sendRequestAndUnmarshal(method string, url string, data string, v interface
 	}
 	// Set the Content-Type header only if data was provided
 	if data != "" {
-		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.Header.Set("Content-Type", string(contentType))
 	}
 	// Specify that we want json as the response type. This is especially useful
 	// for applications which share things between client and server
@@ -187,11 +206,24 @@ func sendRequestAndUnmarshal(method string, url string, data string, v interface
 	return json.Unmarshal(body, v)
 }
 
-// encodeModelFields returns the fields of model represented as a url-encoded string.
+// encodeFields
+func encodeFields(model Model) (string, error) {
+	switch contentType {
+	case ContentURLEncoded:
+		return urlEncodeFields(model)
+	case ContentJSON:
+		data, err := json.Marshal(model)
+		return string(data), err
+	default:
+		return "", fmt.Errorf("rest: don't know how to handle ContentType: %s", contentType)
+	}
+}
+
+// urlEncodeFields returns the fields of model represented as a url-encoded string.
 // Suitable for POST requests with a content type of application/x-www-form-urlencoded.
 // It returns an error if model is a nil pointer or if it is not a struct or a pointer
 // to a struct. Any fields that are nil will not be added to the url-encoded string.
-func encodeModelFields(model Model) (string, error) {
+func urlEncodeFields(model Model) (string, error) {
 	modelVal := reflect.ValueOf(model)
 	// dereference the pointer until we reach the underlying struct value.
 	for modelVal.Kind() == reflect.Ptr {
@@ -208,7 +240,7 @@ func encodeModelFields(model Model) (string, error) {
 	for i := 0; i < modelVal.Type().NumField(); i++ {
 		field := modelVal.Type().Field(i)
 		fieldValue := modelVal.FieldByName(field.Name)
-		encodedField, err := encodeField(field, fieldValue)
+		encodedField, err := urlEncodeField(field, fieldValue)
 		if err != nil {
 			if _, ok := err.(nilFieldError); ok {
 				// If there was a nil field, continue without adding the field
@@ -229,11 +261,11 @@ func (nilFieldError) Error() string {
 	return "field was nil"
 }
 
-// encodeField converts a field with the given value to a string. It returns an error
+// urlEncodeField converts a field with the given value to a string. It returns an error
 // if field has a type which is unsupported. It returns a special error (nilFieldError)
 // if a field has a value of nil. The supported types are int and its variants (int64,
 // int32, etc.), uint and its variants (uint64, uint32, etc.), bool, string, and []byte.
-func encodeField(field reflect.StructField, value reflect.Value) (string, error) {
+func urlEncodeField(field reflect.StructField, value reflect.Value) (string, error) {
 	for value.Kind() == reflect.Ptr {
 		if value.IsNil() {
 			// Skip nil fields
