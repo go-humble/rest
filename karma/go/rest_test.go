@@ -38,7 +38,7 @@ func main() {
 
 		qunit.Test("ReadAll "+string(contentType), func(assert qunit.QUnitAssert) {
 			qunit.Expect(2)
-			done := assert.Call("async")
+			done := assert.Async()
 			go func() {
 				expectedTodos := []*Todo{
 					{
@@ -61,14 +61,14 @@ func main() {
 				err := rest.ReadAll(&gotTodos)
 				assert.Ok(err == nil, fmt.Sprintf("rest.ReadAll returned an error: %v", err))
 				assert.Ok(reflect.DeepEqual(gotTodos, expectedTodos), fmt.Sprintf("Expected: %v, Got: %v", expectedTodos, gotTodos))
-				done.Invoke()
+				done()
 				wg.Done()
 			}()
 		})
 
 		qunit.Test("Read "+string(contentType), func(assert qunit.QUnitAssert) {
 			qunit.Expect(2)
-			done := assert.Call("async")
+			done := assert.Async()
 			go func() {
 				expectedTodo := &Todo{
 					Id:          2,
@@ -79,14 +79,14 @@ func main() {
 				err := rest.Read("2", gotTodo)
 				assert.Ok(err == nil, fmt.Sprintf("rest.Read returned an error: %v", err))
 				assert.Ok(reflect.DeepEqual(gotTodo, expectedTodo), fmt.Sprintf("Expected: %v, Got: %v", expectedTodo, gotTodo))
-				done.Invoke()
+				done()
 				wg.Done()
 			}()
 		})
 
 		qunit.Test("Create "+string(contentType), func(assert qunit.QUnitAssert) {
 			qunit.Expect(4)
-			done := assert.Call("async")
+			done := assert.Async()
 			go func() {
 				newTodo := &Todo{
 					Title:       "Test",
@@ -97,14 +97,14 @@ func main() {
 				assert.Equal(newTodo.Id, 3, "newTodo.Id was not set correctly.")
 				assert.Equal(newTodo.Title, "Test", "newTodo.Title was incorrect.")
 				assert.Equal(newTodo.IsCompleted, true, "newTodo.IsCompleted was incorrect.")
-				done.Invoke()
+				done()
 				wg.Done()
 			}()
 		})
 
 		qunit.Test("Update "+string(contentType), func(assert qunit.QUnitAssert) {
 			qunit.Expect(4)
-			done := assert.Call("async")
+			done := assert.Async()
 			go func() {
 				updatedTodo := &Todo{
 					Id:          1,
@@ -116,21 +116,21 @@ func main() {
 				assert.Equal(updatedTodo.Id, 1, "updatedTodo.Id was incorrect.")
 				assert.Equal(updatedTodo.Title, "Updated Title", "updatedTodo.Title was incorrect.")
 				assert.Equal(updatedTodo.IsCompleted, true, "updatedTodo.IsCompleted was incorrect.")
-				done.Invoke()
+				done()
 				wg.Done()
 			}()
 		})
 
 		qunit.Test("Delete "+string(contentType), func(assert qunit.QUnitAssert) {
 			qunit.Expect(1)
-			done := assert.Call("async")
+			done := assert.Async()
 			go func() {
 				deletedTodo := &Todo{
 					Id: 1,
 				}
 				err := rest.Delete(deletedTodo)
 				assert.Ok(err == nil, fmt.Sprintf("rest.Update returned an error: %v", err))
-				done.Invoke()
+				done()
 				wg.Done()
 			}()
 		})
