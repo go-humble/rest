@@ -6,6 +6,7 @@ import (
 	"github.com/rusco/qunit"
 	"reflect"
 	"strconv"
+	"sync"
 )
 
 type Todo struct {
@@ -26,15 +27,17 @@ func main() {
 	// contentTypes is an array of all ContentTypes that we want to test for.
 	// Note thate the test server must be capable of handling each type.
 	contentTypes := []rest.ContentType{rest.ContentURLEncoded, rest.ContentJSON}
+	// For each content type, we want to run all the tests and wait for the
+	// tests to finish before continuing to the next type.
+	for _, contentType := range contentTypes {
+		rest.SetContentType(contentType)
+		wg := sync.WaitGroup{}
+		// Currently there are 5 tests. Need to update this if we add more
+		// tests.
+		wg.Add(5)
 
-	qunit.Test("ReadAll", func(assert qunit.QUnitAssert) {
-		// We want to run this test for each contentType in contentTypes.
-		// We declare that we expect 2 assertions per type, then iterate through
-		// each content type, set the type with rest.SetContentType, and run the
-		// test. The rest of the tests use the same approach.
-		qunit.Expect(2 * len(contentTypes))
-		for _, contentType := range contentTypes {
-			rest.SetContentType(contentType)
+		qunit.Test("ReadAll "+string(contentType), func(assert qunit.QUnitAssert) {
+			qunit.Expect(2)
 			done := assert.Call("async")
 			go func() {
 				expectedTodos := []*Todo{
@@ -59,15 +62,12 @@ func main() {
 				assert.Ok(err == nil, fmt.Sprintf("rest.ReadAll returned an error: %v", err))
 				assert.Ok(reflect.DeepEqual(gotTodos, expectedTodos), fmt.Sprintf("Expected: %v, Got: %v", expectedTodos, gotTodos))
 				done.Invoke()
-
+				wg.Done()
 			}()
-		}
-	})
+		})
 
-	qunit.Test("Read", func(assert qunit.QUnitAssert) {
-		qunit.Expect(2 * len(contentTypes))
-		for _, contentType := range contentTypes {
-			rest.SetContentType(contentType)
+		qunit.Test("Read "+string(contentType), func(assert qunit.QUnitAssert) {
+			qunit.Expect(2)
 			done := assert.Call("async")
 			go func() {
 				expectedTodo := &Todo{
@@ -80,14 +80,12 @@ func main() {
 				assert.Ok(err == nil, fmt.Sprintf("rest.Read returned an error: %v", err))
 				assert.Ok(reflect.DeepEqual(gotTodo, expectedTodo), fmt.Sprintf("Expected: %v, Got: %v", expectedTodo, gotTodo))
 				done.Invoke()
+				wg.Done()
 			}()
-		}
-	})
+		})
 
-	qunit.Test("Create", func(assert qunit.QUnitAssert) {
-		qunit.Expect(4 * len(contentTypes))
-		for _, contentType := range contentTypes {
-			rest.SetContentType(contentType)
+		qunit.Test("Create "+string(contentType), func(assert qunit.QUnitAssert) {
+			qunit.Expect(4)
 			done := assert.Call("async")
 			go func() {
 				newTodo := &Todo{
@@ -100,14 +98,12 @@ func main() {
 				assert.Equal(newTodo.Title, "Test", "newTodo.Title was incorrect.")
 				assert.Equal(newTodo.IsCompleted, true, "newTodo.IsCompleted was incorrect.")
 				done.Invoke()
+				wg.Done()
 			}()
-		}
-	})
+		})
 
-	qunit.Test("Update", func(assert qunit.QUnitAssert) {
-		qunit.Expect(4 * len(contentTypes))
-		for _, contentType := range contentTypes {
-			rest.SetContentType(contentType)
+		qunit.Test("Update "+string(contentType), func(assert qunit.QUnitAssert) {
+			qunit.Expect(4)
 			done := assert.Call("async")
 			go func() {
 				updatedTodo := &Todo{
@@ -121,14 +117,12 @@ func main() {
 				assert.Equal(updatedTodo.Title, "Updated Title", "updatedTodo.Title was incorrect.")
 				assert.Equal(updatedTodo.IsCompleted, true, "updatedTodo.IsCompleted was incorrect.")
 				done.Invoke()
+				wg.Done()
 			}()
-		}
-	})
+		})
 
-	qunit.Test("Delete", func(assert qunit.QUnitAssert) {
-		qunit.Expect(1 * len(contentTypes))
-		for _, contentType := range contentTypes {
-			rest.SetContentType(contentType)
+		qunit.Test("Delete "+string(contentType), func(assert qunit.QUnitAssert) {
+			qunit.Expect(1)
 			done := assert.Call("async")
 			go func() {
 				deletedTodo := &Todo{
@@ -137,7 +131,11 @@ func main() {
 				err := rest.Delete(deletedTodo)
 				assert.Ok(err == nil, fmt.Sprintf("rest.Update returned an error: %v", err))
 				done.Invoke()
+				wg.Done()
 			}()
-		}
-	})
+		})
+
+		// Wait for all the tests to finish before continuing to the next content type.
+		wg.Wait()
+	}
 }
