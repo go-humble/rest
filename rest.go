@@ -19,6 +19,8 @@ import (
 	"strings"
 )
 
+// ContentType is a string which can be set as the Content-Type header and
+// will affect the encoding of the body of requests.
 type ContentType string
 
 const (
@@ -30,10 +32,12 @@ const (
 // use and can be set with the SetContentType function.
 var contentType = ContentURLEncoded
 
-// SetContentType can be set to globally effect the Content-Type header and body
+// SetContentType can be set to globally affect the Content-Type header and body
 // encoding used by the rest package when sending requests. By default the value
-// is ContentURLEncoded, which is "application/x-www-form-urlencoded". To send
-// requests encoded as JSON, you can set this to ContentJSON.
+// is ContentURLEncoded, which corresponds to the Content-Type header
+// "application/x-www-form-urlencoded". To send requests encoded as JSON, you can
+// set this to ContentJSON, which corresponds to the Content-Type header
+// "application/json".
 func SetContentType(c ContentType) {
 	contentType = c
 }
@@ -55,11 +59,12 @@ type Model interface {
 
 // Create sends an http request to create the given model. It uses reflection to
 // convert the fields of model to url-encoded data. Then it sends a POST request to
-// model.RootURL() with the encoded data in the body and the Content-Type header set to
-// application/x-www-form-urlencoded. It expects a JSON response containing the created
-// object from the server if the request was successful, in which case it will mutate model
-// by setting the fields to the values in the JSON response. Since model may be mutated,
-// it should be a poitner.
+// model.RootURL() with the encoded data in the body and the Content-Type header set
+// to "application/x-www-form-urlencoded" by default, or to "application/json" if you
+// called rest.SetContentType(rest.ContentJSON). It expects a JSON response containing
+// the created object from the server if the request was successful, in which case it
+// will mutate model by setting the fields to the values in the JSON response. Since
+// model may be mutated, it should be a poitner.
 func Create(model Model) error {
 	fullURL := model.RootURL()
 	encodedModelData, err := encodeFields(model)
@@ -98,8 +103,9 @@ func ReadAll(models interface{}) error {
 // Update sends an http request to update the given model, i.e. to change some or all
 // of the fields. It uses reflection to convert the fields of model to url-encoded data.
 // Then it sends a PUT request to model.RootURL() with the encoded data in the body and
-// the Content-Type header set to application/x-www-form-urlencoded. Update expects a
-// JSON response containing the data for the updated model if the request was successful,
+// the Content-Type header set to "application/x-www-form-urlencoded" by default, or to
+// "application/json" if you called rest.SetContentType(rest.ContentJSON). Update expects
+// a JSON response containing the data for the updated model if the request was successful,
 // in which case it will mutate model by setting the fields to the values in the JSON
 // response. Since model may be mutated, it should be a pointer.
 func Update(model Model) error {
@@ -175,10 +181,9 @@ func getURLFromModels(models interface{}) (string, error) {
 // sendRequestAndUnmarshal constructs a request with the given method, url, and
 // data. If data is an empty string, it will construct a request without any
 // data in the body. If data is a non-empty string, it will send it as the body
-// of the request and set the Content-Type header to
-// application/x-www-form-urlencoded. Then sendRequestAndUnmarshal sends the
-// request using http.DefaultClient and marshals the response into v using the json
-// package.
+// of the request and set the Content-Type header depending on what contentType has
+// been set to. Then sendRequestAndUnmarshal sends the request using http.DefaultClient
+// and marshals the response into v using the json package.
 // TODO: do something if the response status code is non-200.
 func sendRequestAndUnmarshal(method string, url string, data string, v interface{}) error {
 	// Build the request
@@ -206,7 +211,8 @@ func sendRequestAndUnmarshal(method string, url string, data string, v interface
 	return json.Unmarshal(body, v)
 }
 
-// encodeFields
+// encodeFields encodes the fields using either json encoding or url encoding, depending
+// on the value of contentType.
 func encodeFields(model Model) (string, error) {
 	switch contentType {
 	case ContentURLEncoded:
