@@ -19,8 +19,6 @@ import (
 	"strings"
 )
 
-// ContentType is a string which can be set as the Content-Type header and
-// will affect the encoding of the body of requests.
 type ContentType string
 
 const (
@@ -28,18 +26,24 @@ const (
 	ContentURLEncoded ContentType = "application/x-www-form-urlencoded"
 )
 
-// contentType determines which Content-Type header and body encoding to
-// use and can be set with the SetContentType function.
-var contentType = ContentURLEncoded
+// A client is capable of sending RESTful requests to some server and
+// unmarshalling the response into an arbitrary struct type. It can
+// be configured by changing its properties directly.
+type Client struct {
+	// Content-Type is used to determine the Content-Type header and encoding
+	// the the client will use when sending requests. By default, the value
+	// is ContentURLEncoded, which corresponds to the Content-Type header
+	// "application/x-www-form-urlencoded". To send requests encoded as JSON,
+	// you can set this to ContentJSON, which corresponds to the Content-Type
+	// header "application/json".
+	ContentType ContentType
+}
 
-// SetContentType can be set to globally affect the Content-Type header and body
-// encoding used by the rest package when sending requests. By default the value
-// is ContentURLEncoded, which corresponds to the Content-Type header
-// "application/x-www-form-urlencoded". To send requests encoded as JSON, you can
-// set this to ContentJSON, which corresponds to the Content-Type header
-// "application/json".
-func SetContentType(c ContentType) {
-	contentType = c
+// NewClient returns a new client with all the default settings.
+func NewClient() *Client {
+	return &Client{
+		ContentType: ContentURLEncoded,
+	}
 }
 
 // Model must be satisfied by all models. Satisfying this interface allows you to
@@ -65,13 +69,13 @@ type Model interface {
 // the created object from the server if the request was successful, in which case it
 // will mutate model by setting the fields to the values in the JSON response. Since
 // model may be mutated, it should be a poitner.
-func Create(model Model) error {
+func (c *Client) Create(model Model) error {
 	fullURL := model.RootURL()
-	encodedModelData, err := encodeFields(model)
+	encodedModelData, err := c.encodeFields(model)
 	if err != nil {
 		return err
 	}
-	return sendRequestAndUnmarshal("POST", fullURL, encodedModelData, model)
+	return c.sendRequestAndUnmarshal("POST", fullURL, encodedModelData, model)
 }
 
 // Read sends an http request to read (or fetch) the model with the given id
@@ -80,9 +84,9 @@ func Create(model Model) error {
 // request was successful, in which case it will mutate model by setting the fields
 // to the values in the JSON response. Since model may be mutated, it should be
 // a pointer.
-func Read(id string, model Model) error {
+func (c *Client) Read(id string, model Model) error {
 	fullURL := model.RootURL() + "/" + id
-	return sendRequestAndUnmarshal("GET", fullURL, "", model)
+	return c.sendRequestAndUnmarshal("GET", fullURL, "", model)
 }
 
 // ReadAll sends an http request to read (or fetch) all the models of a particular
@@ -92,12 +96,12 @@ func Read(id string, model Model) error {
 // of some type which implements Model. ReadAll will mutate models by growing or shrinking
 // the slice as needed, and by setting the fields of each element to the values in the JSON
 // response.
-func ReadAll(models interface{}) error {
+func (c *Client) ReadAll(models interface{}) error {
 	rootURL, err := getURLFromModels(models)
 	if err != nil {
 		return err
 	}
-	return sendRequestAndUnmarshal("GET", rootURL, "", models)
+	return c.sendRequestAndUnmarshal("GET", rootURL, "", models)
 }
 
 // Update sends an http request to update the given model, i.e. to change some or all
@@ -108,19 +112,19 @@ func ReadAll(models interface{}) error {
 // a JSON response containing the data for the updated model if the request was successful,
 // in which case it will mutate model by setting the fields to the values in the JSON
 // response. Since model may be mutated, it should be a pointer.
-func Update(model Model) error {
+func (c *Client) Update(model Model) error {
 	fullURL := model.RootURL() + "/" + model.ModelId()
-	encodedModelData, err := encodeFields(model)
+	encodedModelData, err := c.encodeFields(model)
 	if err != nil {
 		return err
 	}
-	return sendRequestAndUnmarshal("PUT", fullURL, encodedModelData, model)
+	return c.sendRequestAndUnmarshal("PUT", fullURL, encodedModelData, model)
 }
 
 // Delete sends an http request to delete the given model. It sends a DELETE request
 // to model.RootURL() + "/" + model.ModelId(). DELETE expects an empty JSON response
 // if the request was successful, and it will not mutate model.
-func Delete(model Model) error {
+func (c *Client) Delete(model Model) error {
 	fullURL := model.RootURL() + "/" + model.ModelId()
 	req, err := http.NewRequest("DELETE", fullURL, nil)
 	if err != nil {
@@ -185,7 +189,7 @@ func getURLFromModels(models interface{}) (string, error) {
 // been set to. Then sendRequestAndUnmarshal sends the request using http.DefaultClient
 // and marshals the response into v using the json package.
 // TODO: do something if the response status code is non-200.
-func sendRequestAndUnmarshal(method string, url string, data string, v interface{}) error {
+func (c *Client) sendRequestAndUnmarshal(method string, url string, data string, v interface{}) error {
 	// Build the request
 	req, err := http.NewRequest(method, url, strings.NewReader(data))
 	if err != nil {
@@ -193,7 +197,7 @@ func sendRequestAndUnmarshal(method string, url string, data string, v interface
 	}
 	// Set the Content-Type header only if data was provided
 	if data != "" {
-		req.Header.Set("Content-Type", string(contentType))
+		req.Header.Set("Content-Type", string(c.ContentType))
 	}
 	// Specify that we want json as the response type. This is especially useful
 	// for applications which share things between client and server
@@ -202,6 +206,10 @@ func sendRequestAndUnmarshal(method string, url string, data string, v interface
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("Something went wrong with %s request to %s: %s", req.Method, req.URL.String(), err.Error())
+	}
+	// Check if the status code is 2xx, indicating success
+	if res.StatusCode/100 != 2 {
+		return newHTTPError(res)
 	}
 	// Unmarshal the response into v
 	body, err := ioutil.ReadAll(res.Body)
@@ -213,15 +221,15 @@ func sendRequestAndUnmarshal(method string, url string, data string, v interface
 
 // encodeFields encodes the fields using either json encoding or url encoding, depending
 // on the value of contentType.
-func encodeFields(model Model) (string, error) {
-	switch contentType {
+func (c *Client) encodeFields(model Model) (string, error) {
+	switch c.ContentType {
 	case ContentURLEncoded:
 		return urlEncodeFields(model)
 	case ContentJSON:
 		data, err := json.Marshal(model)
 		return string(data), err
 	default:
-		return "", fmt.Errorf("rest: don't know how to handle ContentType: %s", contentType)
+		return "", fmt.Errorf("rest: don't know how to handle ContentType: %s", c.ContentType)
 	}
 }
 

@@ -188,7 +188,7 @@ func parseId(req *http.Request) (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf(`Could not convert id paramater "%s" to int`, idStr)
 	}
-	if id < 0 || id > 2 {
+	if id < 0 || id > len(todos)-1 {
 		return 0, fmt.Errorf(`Could not find todo with id = %d`, id)
 	}
 	return id, nil

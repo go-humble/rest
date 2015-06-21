@@ -23,6 +23,10 @@ func (t Todo) RootURL() string {
 	return "http://localhost:3000/todos"
 }
 
+const (
+	statusUnprocessableEntity = 422
+)
+
 func main() {
 	// contentTypes is an array of all ContentTypes that we want to test for.
 	// Note thate the test server must be capable of handling each type.
@@ -30,11 +34,12 @@ func main() {
 	// For each content type, we want to run all the tests and wait for the
 	// tests to finish before continuing to the next type.
 	for _, contentType := range contentTypes {
-		rest.SetContentType(contentType)
+		client := rest.NewClient()
+		client.ContentType = contentType
 		wg := sync.WaitGroup{}
 		// Currently there are 5 tests. Need to update this if we add more
 		// tests.
-		wg.Add(5)
+		wg.Add(6)
 
 		qunit.Test("ReadAll "+string(contentType), func(assert qunit.QUnitAssert) {
 			qunit.Expect(2)
@@ -58,8 +63,8 @@ func main() {
 					},
 				}
 				gotTodos := []*Todo{}
-				err := rest.ReadAll(&gotTodos)
-				assert.Ok(err == nil, fmt.Sprintf("rest.ReadAll returned an error: %v", err))
+				err := client.ReadAll(&gotTodos)
+				assert.Ok(err == nil, fmt.Sprintf("client.ReadAll returned an error: %v", err))
 				assert.Ok(reflect.DeepEqual(gotTodos, expectedTodos), fmt.Sprintf("Expected: %v, Got: %v", expectedTodos, gotTodos))
 				done()
 				wg.Done()
@@ -76,8 +81,8 @@ func main() {
 					IsCompleted: true,
 				}
 				gotTodo := &Todo{}
-				err := rest.Read("2", gotTodo)
-				assert.Ok(err == nil, fmt.Sprintf("rest.Read returned an error: %v", err))
+				err := client.Read("2", gotTodo)
+				assert.Ok(err == nil, fmt.Sprintf("client.Read returned an error: %v", err))
 				assert.Ok(reflect.DeepEqual(gotTodo, expectedTodo), fmt.Sprintf("Expected: %v, Got: %v", expectedTodo, gotTodo))
 				done()
 				wg.Done()
@@ -92,8 +97,8 @@ func main() {
 					Title:       "Test",
 					IsCompleted: true,
 				}
-				err := rest.Create(newTodo)
-				assert.Ok(err == nil, fmt.Sprintf("rest.Create returned an error: %v", err))
+				err := client.Create(newTodo)
+				assert.Ok(err == nil, fmt.Sprintf("client.Create returned an error: %v", err))
 				assert.Equal(newTodo.Id, 3, "newTodo.Id was not set correctly.")
 				assert.Equal(newTodo.Title, "Test", "newTodo.Title was incorrect.")
 				assert.Equal(newTodo.IsCompleted, true, "newTodo.IsCompleted was incorrect.")
@@ -111,8 +116,8 @@ func main() {
 					Title:       "Updated Title",
 					IsCompleted: true,
 				}
-				err := rest.Update(updatedTodo)
-				assert.Ok(err == nil, fmt.Sprintf("rest.Update returned an error: %v", err))
+				err := client.Update(updatedTodo)
+				assert.Ok(err == nil, fmt.Sprintf("client.Update returned an error: %v", err))
 				assert.Equal(updatedTodo.Id, 1, "updatedTodo.Id was incorrect.")
 				assert.Equal(updatedTodo.Title, "Updated Title", "updatedTodo.Title was incorrect.")
 				assert.Equal(updatedTodo.IsCompleted, true, "updatedTodo.IsCompleted was incorrect.")
@@ -128,8 +133,24 @@ func main() {
 				deletedTodo := &Todo{
 					Id: 1,
 				}
-				err := rest.Delete(deletedTodo)
-				assert.Ok(err == nil, fmt.Sprintf("rest.Update returned an error: %v", err))
+				err := client.Delete(deletedTodo)
+				assert.Ok(err == nil, fmt.Sprintf("client.Update returned an error: %v", err))
+				done()
+				wg.Done()
+			}()
+		})
+
+		qunit.Test("Non-2xx Response "+string(contentType), func(assert qunit.QUnitAssert) {
+			qunit.Expect(5)
+			done := assert.Async()
+			go func() {
+				err := client.Read("9999", &Todo{})
+				assert.NotEqual(err, nil, "Expected an error from client.Read with invalid id, but got none.")
+				httpErr, ok := err.(rest.HTTPError)
+				assert.Equal(ok, true, fmt.Sprintf("Expected error of type rest.HTTPError but got %T", err))
+				assert.Equal(httpErr.URL, Todo{}.RootURL()+"/9999", "httpErr.URL was incorrect")
+				assert.Equal(httpErr.StatusCode, statusUnprocessableEntity, "httpErr.StatusCode was incorrect")
+				assert.NotEqual(httpErr.Body, "", "httpErr.Body was empty")
 				done()
 				wg.Done()
 			}()
