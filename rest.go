@@ -2,14 +2,13 @@
 // Use of this source code is governed by the MIT
 // license, which can be found in the LICENSE file.
 
-// package rest contains functions for sending http requests to a REST API, which
-// can be used to create, read, update, and delete models from a server.
+// package rest is a small package for sending requests to a RESTful API and
+// unmarshaling the response. It compiles to javascript via gopherjs and is
+// intended to run in the browser.
 //
-// TODO: add a really detailed package doc comment describing:
-//   - The methods and urls that are used for each function
-//   - The format in which models are encoded and what field types are supported
-//   - What responses from the server should look like
-//   - What happens if there is a non-200 response status code
+// Rest sends requests using CRUD semantics. It supports requests with a
+// Content-Type of either application/x-www-form-urlencoded or application/json
+// and parses json responses from the server.
 package rest
 
 import (
@@ -23,6 +22,7 @@ import (
 	"strings"
 )
 
+// ContentType represents a Content-Type header.
 type ContentType string
 
 const (
@@ -31,10 +31,9 @@ const (
 )
 
 // A client is capable of sending RESTful requests to some server and
-// unmarshalling the response into an arbitrary struct type. It can
-// be configured by changing its properties directly.
+// unmarshalling the response into an arbitrary struct type.
 type Client struct {
-	// Content-Type is used to determine the Content-Type header and encoding
+	// ContentType is used to determine the Content-Type header and encoding
 	// the the client will use when sending requests. By default, the value
 	// is ContentURLEncoded, which corresponds to the Content-Type header
 	// "application/x-www-form-urlencoded". To send requests encoded as JSON,
@@ -54,7 +53,8 @@ func NewClient() *Client {
 // use the helper methods which send http requests to a REST API. They are used
 // for e.g., creating a new model or getting an existing model from the server.
 // Because of the way reflection is used to encode the data, a Model must have an
-// underlying type of either a struct or a pointer to a struct.
+// underlying type of a struct, and all fields you wish to be included in requests
+// and responses must be exported.
 type Model interface {
 	// ModelId returns a unique identifier for the model. It is used for determining
 	// which URL to send a request to.
@@ -69,12 +69,11 @@ type Model interface {
 
 // Create sends an http request to create the given model. It uses reflection to
 // convert the fields of model to url-encoded data. Then it sends a POST request to
-// model.RootURL() with the encoded data in the body and the Content-Type header set
-// to "application/x-www-form-urlencoded" by default, or to "application/json" if you
-// called rest.SetContentType(rest.ContentJSON). It expects a JSON response containing
-// the created object from the server if the request was successful, in which case it
-// will mutate model by setting the fields to the values in the JSON response. Since
-// model may be mutated, it should be a poitner.
+// model.RootURL() with the encoded data in the body and the appropriate Content-Type
+// header. It expects a JSON response containing the created object from the server
+// if the request was successful, in which case it will mutate model by setting the
+// fields to the values in the JSON response. Since model may be mutated, it should
+// be a pointer.
 func (c *Client) Create(model Model) error {
 	fullURL := model.RootURL()
 	encodedModelData, err := c.encodeFields(model)
@@ -95,7 +94,7 @@ func (c *Client) Read(id string, model Model) error {
 	return c.sendRequestAndUnmarshal("GET", fullURL, "", model)
 }
 
-// ReadAll sends an http request to read (or fetch) all the models of a particular
+// ReadAll sends an http request to get all the models of a particular
 // type from the server (e.g. get all the todos). It sends a GET request to
 // model.RootURL(). ReadAll expects a JSON response containing an array of objects,
 // where each object contains data for one model. models must be a pointer to a slice
@@ -110,14 +109,13 @@ func (c *Client) ReadAll(models interface{}) error {
 	return c.sendRequestAndUnmarshal("GET", rootURL, "", models)
 }
 
-// Update sends an http request to update the given model, i.e. to change some or all
-// of the fields. It uses reflection to convert the fields of model to url-encoded data.
+// Update sends an http request to update an existing model, i.e. to change some or all
+// of the fields. It uses reflection to convert the fields of model to the proper encoding.
 // Then it sends a PATCH request to model.RootURL() with the encoded data in the body and
-// the Content-Type header set to "application/x-www-form-urlencoded" by default, or to
-// "application/json" if you called rest.SetContentType(rest.ContentJSON). Update expects
-// a JSON response containing the data for the updated model if the request was successful,
-// in which case it will mutate model by setting the fields to the values in the JSON
-// response. Since model may be mutated, it should be a pointer.
+// the appropriate Content-Type header. Update expects a JSON response containing the data
+// for the updated model if the request was successful, in which case it will mutate model
+// by setting the fields to the values in the JSON response. Since model may be mutated,
+// it should be a pointer.
 func (c *Client) Update(model Model) error {
 	fullURL := model.RootURL() + "/" + model.ModelId()
 	encodedModelData, err := c.encodeFields(model)
@@ -127,9 +125,9 @@ func (c *Client) Update(model Model) error {
 	return c.sendRequestAndUnmarshal("PATCH", fullURL, encodedModelData, model)
 }
 
-// Delete sends an http request to delete the given model. It sends a DELETE request
-// to model.RootURL() + "/" + model.ModelId(). DELETE expects an empty JSON response
-// if the request was successful, and it will not mutate model.
+// Delete sends an http request to delete an existing model. It sends a DELETE request
+// to model.RootURL() + "/" + model.ModelId(). DELETE will not do anything with the
+// response from the server and will not mutate model.
 func (c *Client) Delete(model Model) error {
 	fullURL := model.RootURL() + "/" + model.ModelId()
 	req, err := http.NewRequest("DELETE", fullURL, nil)
