@@ -35,7 +35,7 @@ Installation
 Install rest like you would any other go package:
 
 ```bash
-go get github.com/go-humble/rest`
+go get github.com/go-humble/rest
 ```
 
 You will also need to install gopherjs if you don't already have it. The latest version is
