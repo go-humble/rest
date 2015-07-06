@@ -3,7 +3,7 @@ Humble/Rest
 
 [![GoDoc](https://godoc.org/github.com/go-humble/rest?status.svg)](https://godoc.org/github.com/go-humble/rest)
 
-Version X.X.X
+Version 0.1.0
 
 A small go package for sending requests to a RESTful API and unmarshaling the response.
 Rest sends requests using CRUD semantics. It supports requests with a Content-Type
