@@ -60,14 +60,14 @@ func main() {
 	router.HandleFunc("/todos", todosController.Index).Methods("GET")
 	router.HandleFunc("/todos", todosController.Create).Methods("POST")
 	router.HandleFunc("/todos/{id}", todosController.Show).Methods("GET")
-	router.HandleFunc("/todos/{id}", todosController.Update).Methods("PUT")
+	router.HandleFunc("/todos/{id}", todosController.Update).Methods("PATCH")
 	router.HandleFunc("/todos/{id}", todosController.Delete).Methods("DELETE")
 
 	// Other middleware
 	n := negroni.New(negroni.NewLogger())
 	n.UseHandler(cors.Allow(&cors.Options{
 		AllowOrigins:     []string{"*"},
-		AllowMethods:     []string{"GET", "POST", "DELETE", "PUT", "PATCH"},
+		AllowMethods:     []string{"GET", "POST", "DELETE", "PATCH"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "X-Requested-With"},
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,

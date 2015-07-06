@@ -56,8 +56,10 @@ type Model interface {
 	// which URL to send a request to.
 	ModelId() string
 	// RootURL returns the url for the REST resource corresponding to this model.
-	// Typically it should look something like "http://examle.com/todos". Note that
-	// the trailing slash should not be included.
+	// If you want to send requests to the same server, it should look something
+	// like "/todos". If you want to send requests to a different server, you can
+	// include the entire domain in the url, e.g. "http://example.com/todos". Note
+	// that the trailing slash should not be included.
 	RootURL() string
 }
 
@@ -106,7 +108,7 @@ func (c *Client) ReadAll(models interface{}) error {
 
 // Update sends an http request to update the given model, i.e. to change some or all
 // of the fields. It uses reflection to convert the fields of model to url-encoded data.
-// Then it sends a PUT request to model.RootURL() with the encoded data in the body and
+// Then it sends a PATCH request to model.RootURL() with the encoded data in the body and
 // the Content-Type header set to "application/x-www-form-urlencoded" by default, or to
 // "application/json" if you called rest.SetContentType(rest.ContentJSON). Update expects
 // a JSON response containing the data for the updated model if the request was successful,
@@ -118,7 +120,7 @@ func (c *Client) Update(model Model) error {
 	if err != nil {
 		return err
 	}
-	return c.sendRequestAndUnmarshal("PUT", fullURL, encodedModelData, model)
+	return c.sendRequestAndUnmarshal("PATCH", fullURL, encodedModelData, model)
 }
 
 // Delete sends an http request to delete the given model. It sends a DELETE request
