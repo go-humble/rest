@@ -254,11 +254,11 @@ func urlEncodeFields(model Model) (string, error) {
 	if modelVal.Kind() != reflect.Struct {
 		return "", fmt.Errorf("Error encoding model as url-encoded data: model must be a struct or a pointer to a struct.")
 	}
-	encodedFields := []string{}
+	values := url.Values{}
 	for i := 0; i < modelVal.Type().NumField(); i++ {
 		field := modelVal.Type().Field(i)
 		fieldValue := modelVal.FieldByName(field.Name)
-		encodedField, err := urlEncodeField(field, fieldValue)
+		valueStr, err := encodeString(fieldValue)
 		if err != nil {
 			if err == nilFieldError {
 				// If there was a nil field, continue without adding the field
@@ -268,18 +268,19 @@ func urlEncodeFields(model Model) (string, error) {
 			// We should return any other kind of error
 			return "", err
 		}
-		encodedFields = append(encodedFields, field.Name+"="+encodedField)
+		values.Add(field.Name, valueStr)
 	}
-	return strings.Join(encodedFields, "&"), nil
+	return values.Encode(), nil
 }
 
 var nilFieldError = errors.New("field was nil")
 
-// urlEncodeField converts a field with the given value to a string. It returns an error
-// if field has a type which is unsupported. It returns a special error (nilFieldError)
-// if a field has a value of nil. The supported types are int and its variants (int64,
-// int32, etc.), uint and its variants (uint64, uint32, etc.), bool, string, and []byte.
-func urlEncodeField(field reflect.StructField, value reflect.Value) (string, error) {
+// encodeString converts the given value to a string. It returns an error if
+// value has a type which is unsupported. It returns a special error
+// (nilFieldError) if a field has a value of nil. The supported types are int
+// and its variants (int64, int32, etc.), uint and its variants (uint64, uint32,
+// etc.), float32, float64, bool, string, and []byte.
+func encodeString(value reflect.Value) (string, error) {
 	for value.Kind() == reflect.Ptr {
 		if value.IsNil() {
 			// Skip nil fields
@@ -288,12 +289,13 @@ func urlEncodeField(field reflect.StructField, value reflect.Value) (string, err
 		value = value.Elem()
 	}
 	switch v := value.Interface().(type) {
-	case int, int64, int32, int16, int8, uint, uint64, uint32, uint16, uint8, bool:
+	case int, int64, int32, int16, int8, uint, uint64, uint32, uint16, uint8,
+		float64, float32, bool:
 		return fmt.Sprint(v), nil
 	case string:
-		return url.QueryEscape(v), nil
+		return v, nil
 	case []byte:
-		return url.QueryEscape(string(v)), nil
+		return string(v), nil
 	default:
 		return "", fmt.Errorf("Error encoding model as url-encoded data: Don't know how to convert %v of type %T to a string.", v, v)
 	}
