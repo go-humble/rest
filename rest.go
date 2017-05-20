@@ -9,6 +9,8 @@
 // Rest sends requests using CRUD semantics. It supports requests with a
 // Content-Type of either application/x-www-form-urlencoded or application/json
 // and parses json responses from the server.
+//
+// Version 0.2.0
 package rest
 
 import (
