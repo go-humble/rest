@@ -15,6 +15,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -195,7 +196,11 @@ func getURLFromModels(models interface{}) (string, error) {
 // TODO: do something if the response status code is non-200.
 func (c *Client) sendRequestAndUnmarshal(method string, url string, data string, v interface{}) error {
 	// Build the request
-	req, err := http.NewRequest(method, url, strings.NewReader(data))
+	var reqBody io.Reader = nil
+	if data != "" {
+		reqBody = strings.NewReader(data)
+	}
+	req, err := http.NewRequest(method, url, reqBody)
 	if err != nil {
 		return fmt.Errorf("Something went wrong building %s request to %s: %s", method, url, err.Error())
 	}

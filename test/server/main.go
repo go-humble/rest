@@ -6,13 +6,13 @@ package main
 
 import (
 	"fmt"
-	"github.com/albrow/forms"
-	"github.com/codegangsta/negroni"
-	"github.com/gorilla/mux"
-	"github.com/martini-contrib/cors"
-	"github.com/unrolled/render"
 	"net/http"
 	"strconv"
+
+	"github.com/albrow/forms"
+	"github.com/gin-gonic/gin"
+	"github.com/unrolled/render"
+	"gopkg.in/gin-contrib/cors.v1"
 )
 
 // NOTE: This is a test server specifically designed for testing the humble framework.
@@ -59,29 +59,22 @@ const (
 )
 
 func main() {
-	// Routes
-	router := mux.NewRouter()
-	router.HandleFunc("/todos", todosController.Index).Methods("GET")
-	router.HandleFunc("/todos", todosController.Create).Methods("POST")
-	router.HandleFunc("/todos/{id}", todosController.Show).Methods("GET")
-	router.HandleFunc("/todos/{id}", todosController.Update).Methods("PATCH")
-	router.HandleFunc("/todos/{id}", todosController.Delete).Methods("DELETE")
 
-	// Other middleware
-	n := negroni.New(negroni.NewLogger())
-	n.UseHandler(cors.Allow(&cors.Options{
-		AllowOrigins:     []string{"*"},
-		AllowMethods:     []string{"GET", "POST", "DELETE", "PATCH"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "X-Requested-With"},
-		ExposeHeaders:    []string{"Content-Length"},
-		AllowCredentials: true,
-	}))
+	r := gin.Default()
 
-	// Router must always come last
-	n.UseHandler(router)
+	corsConfig := cors.DefaultConfig()
+	corsConfig.AddAllowHeaders("Content-Type")
+	corsConfig.AddAllowMethods("GET", "POST", "DELETE", "PATCH", "OPTIONS")
+	corsConfig.AllowAllOrigins = true
+	r.Use(cors.New(corsConfig))
 
-	// Start the server
-	n.Run(":3000")
+	r.GET("/todos", todosController.Index)
+	r.POST("/todos", todosController.Create)
+	r.GET("/todos/:id", todosController.Show)
+	r.PATCH("/todos/:id", todosController.Update)
+	r.DELETE("/todos/:id", todosController.Delete)
+
+	r.Run(":3000")
 }
 
 // Todos Controller and its methods
@@ -91,17 +84,17 @@ var todosController = todosControllerType{}
 
 // Index returns a list of todos as an array of json objects. It always returns the
 // same list of todos and is idempotent.
-func (todosControllerType) Index(w http.ResponseWriter, req *http.Request) {
-	r.JSON(w, http.StatusOK, todos)
+func (todosControllerType) Index(c *gin.Context) {
+	c.JSON(http.StatusOK, todos)
 }
 
 // Create accepts form data for creating a new todo. Since this server is designed
 // for testing, it does not actually create the todo, as that would make the server
 // non-idempotent. Create returns the todo that would be created as a json object.
 // It assigns the id of 3 to the todo.
-func (todosControllerType) Create(w http.ResponseWriter, req *http.Request) {
+func (todosControllerType) Create(c *gin.Context) {
 	// Parse data and do validations
-	todoData, err := forms.Parse(req)
+	todoData, err := forms.Parse(c.Request)
 	if err != nil {
 		panic(err)
 	}
@@ -110,7 +103,7 @@ func (todosControllerType) Create(w http.ResponseWriter, req *http.Request) {
 	val.Require("IsCompleted")
 	val.TypeBool("IsCompleted")
 	if val.HasErrors() {
-		r.JSON(w, statusUnprocessableEntity, val.ErrorMap())
+		c.JSON(statusUnprocessableEntity, val.ErrorMap())
 		return
 	}
 
@@ -120,29 +113,29 @@ func (todosControllerType) Create(w http.ResponseWriter, req *http.Request) {
 		Title:       todoData.Get("Title"),
 		IsCompleted: todoData.GetBool("IsCompleted"),
 	}
-	r.JSON(w, http.StatusOK, todo)
+	c.JSON(http.StatusOK, todo)
 }
 
 // Show returns the json data for an existing todo. Since the todos never change
 // and there are three of them, Show will only respond with a todo object for id
 // parameters between 0 and 2. Any other id will result in a 422 error.
-func (todosControllerType) Show(w http.ResponseWriter, req *http.Request) {
+func (todosControllerType) Show(c *gin.Context) {
 	// Get the id from the url parameters
-	id, err := parseId(req)
+	id, err := parseId(c)
 	if err != nil {
-		r.JSON(w, statusUnprocessableEntity, map[string]error{
+		c.JSON(statusUnprocessableEntity, map[string]error{
 			"error": err,
 		})
 		return
 	}
-	r.JSON(w, http.StatusOK, todos[id])
+	c.JSON(http.StatusOK, todos[id])
 }
 
-func (todosControllerType) Update(w http.ResponseWriter, req *http.Request) {
+func (todosControllerType) Update(c *gin.Context) {
 	// Get the id from the url parameters
-	id, err := parseId(req)
+	id, err := parseId(c)
 	if err != nil {
-		r.JSON(w, statusUnprocessableEntity, map[string]error{
+		c.JSON(statusUnprocessableEntity, map[string]error{
 			"error": err,
 		})
 		return
@@ -150,7 +143,7 @@ func (todosControllerType) Update(w http.ResponseWriter, req *http.Request) {
 	// Create a copy of the todo corresponding to id
 	todoCopy := todos[id]
 	// Parse data from the request
-	todoData, err := forms.Parse(req)
+	todoData, err := forms.Parse(c.Request)
 	if err != nil {
 		panic(err)
 	}
@@ -159,7 +152,7 @@ func (todosControllerType) Update(w http.ResponseWriter, req *http.Request) {
 		val := todoData.Validator()
 		val.TypeBool("IsCompleted")
 		if val.HasErrors() {
-			r.JSON(w, statusUnprocessableEntity, val.ErrorMap())
+			c.JSON(statusUnprocessableEntity, val.ErrorMap())
 			return
 		}
 		// Update todoCopy with the given data
@@ -168,26 +161,26 @@ func (todosControllerType) Update(w http.ResponseWriter, req *http.Request) {
 	if todoData.KeyExists("Title") {
 		todoCopy.Title = todoData.Get("Title")
 	}
-	r.JSON(w, http.StatusOK, todoCopy)
+	c.JSON(http.StatusOK, todoCopy)
 }
 
-func (todosControllerType) Delete(w http.ResponseWriter, req *http.Request) {
+func (todosControllerType) Delete(c *gin.Context) {
 	// Get the id from the url parameters
-	if _, err := parseId(req); err != nil {
-		r.JSON(w, statusUnprocessableEntity, map[string]error{
+	if _, err := parseId(c); err != nil {
+		c.JSON(statusUnprocessableEntity, map[string]error{
 			"error": err,
 		})
 		return
 	}
-	r.JSON(w, http.StatusOK, struct{}{})
+	c.JSON(http.StatusOK, struct{}{})
 }
 
-// parseId gets the id out of the url parameters of req, converts it to an int,
+// parseId gets the id out of the url parameters of c, converts it to an int,
 // and then checks that it is in the range of existing todos. It will return an
 // an error if there was problem converting the id parameter to an int or the
 // id was outside the range of existing todos.
-func parseId(req *http.Request) (int, error) {
-	idStr := mux.Vars(req)["id"]
+func parseId(c *gin.Context) (int, error) {
+	idStr := c.Param("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
 		return 0, fmt.Errorf(`Could not convert id paramater "%s" to int`, idStr)

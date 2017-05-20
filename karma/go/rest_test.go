@@ -6,11 +6,12 @@ package main
 
 import (
 	"fmt"
-	"github.com/go-humble/rest"
-	"github.com/rusco/qunit"
 	"reflect"
 	"strconv"
 	"sync"
+
+	"github.com/go-humble/rest"
+	"github.com/rusco/qunit"
 )
 
 type Todo struct {
@@ -41,8 +42,7 @@ func main() {
 		client := rest.NewClient()
 		client.ContentType = contentType
 		wg := sync.WaitGroup{}
-		// Currently there are 5 tests. Need to update this if we add more
-		// tests.
+		// Need to update this if we add more tests.
 		wg.Add(6)
 
 		qunit.Test("ReadAll "+string(contentType), func(assert qunit.QUnitAssert) {
@@ -68,7 +68,7 @@ func main() {
 				}
 				gotTodos := []*Todo{}
 				err := client.ReadAll(&gotTodos)
-				assert.Ok(err == nil, fmt.Sprintf("client.ReadAll returned an error: %v", err))
+				assert.Ok(err == nil, fmt.Sprintf("client.ReadAll returned an error: %T %s", err, err))
 				assert.Ok(reflect.DeepEqual(gotTodos, expectedTodos), fmt.Sprintf("Expected: %v, Got: %v", expectedTodos, gotTodos))
 				done()
 				wg.Done()
