@@ -5,11 +5,11 @@ Humble/Rest
 
 Version 0.1.0
 
-A small go package for sending requests to a RESTful API and unmarshaling the response.
-Rest sends requests using CRUD semantics. It supports requests with a Content-Type
-of either application/x-www-form-urlencoded or application/json and parses json responses
-from the server. Rest works great as a stand-alone package or in combination with other
-packages in the [Humble Framework](https://github.com/go-humble/humble).
+A small go package for sending requests to a RESTful API and unmarshaling the
+response. Rest sends requests using CRUD semantics. It supports requests with a
+Content-Type of either application/x-www-form-urlencoded or application/json and
+parses json responses from the server. Rest works great as a stand-alone package
+or in combination with other [Humble](https://github.com/go-humble) packages.
 
 Rest is written in pure go. It feels like go, follows go idioms when possible, and
 compiles with the go tools. But it is meant to be compiled to javascript and run
@@ -21,8 +21,9 @@ Browser Support
 
 Rest works with IE9+ (with a
 [polyfill for typed arrays](https://github.com/inexorabletash/polyfill/blob/master/typedarray.js))
-and all other modern browsers. Rest compiles to javascript via [gopherjs](https://github.com/gopherjs/gopherjs)
-and this is a gopherjs limitation.
+and all other modern browsers. Rest compiles to javascript via
+[gopherjs](https://github.com/gopherjs/gopherjs) and this is a gopherjs
+limitation.
 
 Rest is regularly tested with the latest versions of Firefox, Chrome, and Safari on Mac OS.
 Each major or minor release is tested with IE9+ and the latest versions of Firefox and Chrome
@@ -35,7 +36,7 @@ Installation
 Install rest like you would any other go package:
 
 ```bash
-go get github.com/go-humble/rest`
+go get github.com/go-humble/rest
 ```
 
 You will also need to install gopherjs if you don't already have it. The latest version is
@@ -119,7 +120,7 @@ set the `ContentType` to `ContentJSON` in order to send requests with the Conten
 var client = &rest.Client{
 	ContentType: ContentJSON,
 }
-``` 
+```
 
 ### Create
 
@@ -349,7 +350,7 @@ browsers themselves. Typically you install a karma launcher with `npm install -g
 You can edit the config file at `karma/test-mac.conf.js` or create a new one (e.g. `karma/test-windows.conf.js`)
 if you want to change the browsers that are tested on.
 
-Once you have installed all the dependencies, start karma with `karma start karma/test-mac.conf.js` (or 
+Once you have installed all the dependencies, start karma with `karma start karma/test-mac.conf.js` (or
 your customized config file, if applicable). Once karma is running, you can keep it running in between tests.
 
 The tests communicate with a special idempotent test server, which does some basic validation and mocks
